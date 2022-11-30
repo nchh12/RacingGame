@@ -13,6 +13,7 @@ public class TCPCore
 
     static void PrintFormat(string formatStr, params string[] args)
     {
+        Debug.Log("~Time: " + Time.time.ToString());
         Debug.Log(string.Format(formatStr, args));
     }
 
@@ -24,11 +25,19 @@ public class TCPCore
 
     public void Connect()
     {
-        client = new TcpClient(serverHostname, serverPort);
+        this.client = new TcpClient(serverHostname, serverPort);
     }
 
     public string GetMessage()
     {
+        if (client is null){
+            Debug.Log("~GetMessage->Null Client");
+            return string.Empty;
+        }
+        if (!client.Connected){
+            Debug.Log("~GetMessage-Not Connected");
+            return string.Empty;
+        }
         try
         {
             NetworkStream stream = client.GetStream();
@@ -63,22 +72,26 @@ public class TCPCore
 
 public class TestTCPCore : MonoBehaviour
 {
-    // Start is called before the first frame update
+    public TCPCore tcpCore;
+
     void Start()
     {
-        Debug.Log("Start TCP client");
+        Debug.Log("~Start:Start TCP client");
 
-        var tcpCore = new TCPCore("localhost", 9090);
-        tcpCore.Connect();
+        var tcpCore = new TCPCore("2.tcp.ngrok.io", 11401);
         tcpCore.GetMessage();
-        tcpCore.Close();
 
-
-        Debug.Log("Stop TCP client");
+        // tcpCore.Connect();
     }
 
     private void Update()
     {
-        
+        // Debug.Log("~Update");
+        // tcpCore.GetMessage();
+    }
+
+    private void OnDestroy()
+    {
+        //tcpCore.Close();
     }
 }
