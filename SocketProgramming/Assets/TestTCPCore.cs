@@ -31,13 +31,41 @@ public class _TCP
             }
 
             Debug.Log("[Client] Connected to server");
-            stream = tcpClient.GetStream(); 
+            stream = tcpClient.GetStream();
+            //using (var networkStream = tcpClient.GetStream())
+            //var reader = new StreamReader(stream);
+            //using (var writer = new StreamWriter(networkStream) { AutoFlush = true }) ;
+            
+            //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
+            //Debug.Log(string.Format("[Client] Writing request '{0}'", sendData));
+            //await writer.WriteLineAsync(sendData);
+
+            //try
+            //{
+            //    for (; ; )
+            //    {
+            //        var response = await reader.ReadLineAsync();
+            //        if (response == null) { break; }
+            //        Debug.Log(string.Format("[Client] Server response was '{0}'", response));
+            //    }
+            //    Debug.Log("[Client] Server disconnected");
+            //}
+            //catch (IOException)
+            //{
+            //    Debug.Log("[Client] Server disconnected");
+            //}
+            
         }
         catch (TimeoutException)
         {
             Debug.Log("Timeout!");
         }
+    }
 
+    public static async Task SendData(string data)
+    {
+        var reader = new StreamWriter(_TCP.stream) { AutoFlush = true};
+        await reader.WriteLineAsync(data);
     }
 
     public static async Task ListenResponse()
@@ -56,7 +84,7 @@ public class _TCP
             {
                 for (; ; )
                 {
-                    Debug.Log("~ListenResponse->Loop...");
+                    //Debug.Log("~ListenResponse->Loop...");
                     try
                     {
                         for (; ; )
@@ -79,8 +107,7 @@ public class _TCP
                 }
             }
         }
-
-        }
+    }
 }
 
 public class TestTCPCore : MonoBehaviour
@@ -91,38 +118,42 @@ public class TestTCPCore : MonoBehaviour
         Debug.Log("~Start:Start TCP client");
         Task.Run(() => _TCP.ConnectAsTcpClient("6.tcp.ngrok.io", 18008));
         Task.Run(() => _TCP.ListenResponse());
-
     }
 
     void Update()
     {
         //Debug.Log("~Update->FrameCount:" + Time.frameCount);
-        if(Time.frameCount == 60)
+        if (Time.frameCount == 60)
         {
-            if (!_TCP.tcpClient.Connected)
-            {
-                Debug.Log("~Update->Not Connnect????");
-                throw new Exception("very sadddddd");
-            }
-            if (_TCP.stream is null)
-            {
-                throw new Exception("so sadddddd");
-            }
-
-            using var writer = new StreamWriter(_TCP.stream) { AutoFlush = true };
             string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-            Debug.Log("~Update->Start Task");
-            Task.Run(async () =>
-            {
-                Debug.Log("~Update->Start WritelineAsync");
-                await writer.WriteLineAsync(sendData);
-                Debug.Log("~Update->Done WritelineAsync");
-            });
-            Debug.Log("~Update->End Task");
+            Task.Run(() => _TCP.SendData(sendData));
+
+            //if (!_TCP.tcpClient.Connected)
+            //{
+            //    Debug.Log("~Update->Not Connnect????");
+            //    throw new Exception("very sadddddd");
+            //}
+            //if (_TCP.stream is null)
+            //{
+            //    throw new Exception("so sadddddd");
+            //}
+
+            //var writer = new StreamWriter(_TCP.stream) { AutoFlush = true };
+            //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
+            //Debug.Log("~Update->Start Task");
+            //Task.Run(async () =>
+            //{
+            //    Debug.Log("~Update->Start WritelineAsync");
+            //    await writer.WriteLineAsync(sendData);
+            //    await writer.FlushAsync();
+            //    Debug.Log("~Update->Done WritelineAsync");
+            //});
+            //Debug.Log("~Update->End Task");
         }
+
         //if (_TCP.StaticRequest != null) return;
 
-        //if(_TCP.StaticResponse != null && _TCP.StaticResponse.Length > 0)
+        //if (_TCP.StaticResponse != null && _TCP.StaticResponse.Length > 0)
         //{
         //    Debug.Log("~Update->StaticResponse: " + _TCP.StaticResponse);
         //    string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
@@ -132,5 +163,6 @@ public class TestTCPCore : MonoBehaviour
 
     void OnDestroy()
     {
+
     }
 }
