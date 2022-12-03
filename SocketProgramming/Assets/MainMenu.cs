@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 public class MainMenu : MonoBehaviour
 {
-    private string user_name;
+    public string user_name;
     public TMP_InputField user_input;
     public Button startBtn;
     public TMP_Text error_text;
