@@ -1,189 +1,136 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
-public class TCPCore
+public class _TCP
 {
-    public TcpClient client;
-    public string serverHostname;
-    public Int32 serverPort;
-    public NetworkStream stream;
+    static int TIMEOUT_MIL = 10000;
+
+    public static string StaticResponse { get; set; } = null;
+    public static string StaticRequest { get; set; } = null;
+    public static NetworkStream stream { get; set; } = null;
+    public static TcpClient tcpClient { get; set; } = null;
 
 
-    static void PrintFormat(string formatStr, params string[] args)
+    public static async Task ConnectAsTcpClient(string ip, int port)
     {
-        Debug.Log("~Time " + Time.time.ToString() + ": " +  string.Format(formatStr, args));
-    }
-
-    public TCPCore(string serverHostname, Int32 serverPort)
-    {
-        this.serverHostname = serverHostname;
-        this.serverPort = serverPort;
-    }
-
-    
-    public void Connect()
-    {
-        //if (client is not null) return;
-        //if (stream is not null) return;
-
-        this.client = new TcpClient(serverHostname, serverPort);
-        this.stream = client?.GetStream();
-        //this.stream.ReadTimeout = 1000;
-        Debug.Log("~Connect->isConnected: " + this.client.Connected);
-    }
-
-    async public Task ListenForMessage()
-    {
-    
-        this.Connect();
-        this.stream = this.client.GetStream();
-        if (stream is null)
-        {
-            Debug.Log("~ListenForMessage->Null Client");
-            return;
-        }
-
-        //try
-        //{
-        while (true)
-        {
-            Debug.Log("~ListenForMessage->Loop...");
-            //var data = new Byte[256 * 100];
-               
-            //var bytes = this.stream.Read(data, 0, data.Length);
-            var streamReader = new StreamReader(stream);
-            var str = streamReader.ReadLine();
-            
-            //var writer = new StreamWriter(stream);
-
-            //PrintFormat("{0}", "Bytes read:" + bytes);
-            PrintFormat("[TCP] - {0}", str);
-            //if (bytes > 0)
-            //{
-            //    string responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
-            //    PrintFormat("[TCP] - Recieved: {0}", responseData);
-            //}
-        }
-
-        //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-        //var sendByte = System.Text.Encoding.ASCII.GetBytes(sendData);
-        //await stream.WriteAsync(sendByte, 0, sendByte.Length);
-        //PrintFormat("[TCP] - Sending: {0}", sendData);
-
-
-        //}
-        //catch (ArgumentNullException e)
-        //{
-        //    PrintFormat("ArgumentNullException: {0}", e.ToString());
-        //}
-        //catch (SocketException e)
-        //{
-        //    //stream?.Close();
-        //    PrintFormat("SocketException: {0}", e.ToString());
-        //}
-    }
-
-    async public Task GetMessage()
-    {
-        PrintFormat("~GetMessage->Start Task", "");
-
-        if (stream is null)
-        {
-            Debug.Log("~GetMessage->Null Client");
-        }
 
         try
-        {   
-            var data = new Byte[256 * 100];
-            var bytes = await stream.ReadAsync(data, 0, data.Length);
-
-            string responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
-            PrintFormat("[TCP] - Recieved: {0}", responseData);
-
-            string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-            var sendByte = System.Text.Encoding.ASCII.GetBytes(sendData);
-            await stream.WriteAsync(sendByte, 0, sendByte.Length);
-            PrintFormat("[TCP] - Sending: {0}", sendData);
-
-        }
-        catch (ArgumentNullException e)
         {
-            PrintFormat("ArgumentNullException: {0}", e.ToString());
+            await Task.Delay(millisecondsDelay: 1000);
+            tcpClient = new TcpClient();
+            Debug.Log("[Client] Attempting connection to server " + ip + ":" + port);
+            Task connectTask = tcpClient.ConnectAsync(ip, port);
+            Task timeoutTask = Task.Delay(millisecondsDelay: TIMEOUT_MIL);
+
+            if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
+            {
+                throw new TimeoutException();
+            }
+
+            Debug.Log("[Client] Connected to server");
+            stream = tcpClient.GetStream(); 
         }
-        catch (SocketException e)
+        catch (TimeoutException)
         {
-            stream?.Close();
-            PrintFormat("SocketException: {0}", e.ToString());
+            Debug.Log("Timeout!");
         }
+
     }
 
-
-    public void Close()
+    public static async Task ListenResponse()
     {
-        client?.Close();
-    }
-}
+        while (true)
+        {
+         
+            if (_TCP.stream == null)
+            {
+                Debug.Log("~ListenResponse->Stream: Null");
+                await Task.Delay(millisecondsDelay: 1000);
+                continue;
+            }
 
+            using (var reader = new StreamReader(stream))
+            {
+                for (; ; )
+                {
+                    Debug.Log("~ListenResponse->Loop...");
+                    try
+                    {
+                        for (; ; )
+                        {
+                            Debug.Log("~ListenResponse->Start Async Read");
+                            var response = await reader.ReadLineAsync();
+                            if (response == null) { break; }
+                            Debug.Log(string.Format("[Client] Server response was '{0}'", response));
+                            //if (response.Length > 0)
+                            //{
+                            //    _TCP.StaticResponse = response;
+                            //}
+                        }
+                        Debug.Log("[Client] Server disconnected");
+                    }
+                    catch (IOException)
+                    {
+                        Debug.Log("[Client] Server disconnected");
+                    }
+                }
+            }
+        }
+
+        }
+}
 
 public class TestTCPCore : MonoBehaviour
 {
-    public TCPCore tcpCore;
-    
     void Start()
     {
         Application.targetFrameRate = 10;
         Debug.Log("~Start:Start TCP client");
-        tcpCore = new TCPCore("4.tcp.ngrok.io", 17391);
-        //tcpCore.Connect();
-        //var data = new Byte[256 * 100];
-        //int bytes = tcpCore.stream.Read(data, 0, data.Length);
-        //string responseData = System.Text.Encoding.ASCII.GetString(data, 0, bytes);
-        //Debug.Log("~Start->res:" + responseData);
-        Task.Run(() => tcpCore.ListenForMessage());
+        Task.Run(() => _TCP.ConnectAsTcpClient("6.tcp.ngrok.io", 18008));
+        Task.Run(() => _TCP.ListenResponse());
+
     }
 
     void Update()
     {
-        //Debug.Log("~Update");
-        //if (tcpCore is null) return;
-        //var readTask = tcpCore.GetMessage();
-        //Task.Run(() => readTask);
-        //Debug.Log("[STATUS] - isConnected? = " + tcpCore.client.Connected);
+        //Debug.Log("~Update->FrameCount:" + Time.frameCount);
+        if(Time.frameCount == 60)
+        {
+            if (!_TCP.tcpClient.Connected)
+            {
+                Debug.Log("~Update->Not Connnect????");
+                throw new Exception("very sadddddd");
+            }
+            if (_TCP.stream is null)
+            {
+                throw new Exception("so sadddddd");
+            }
+
+            using var writer = new StreamWriter(_TCP.stream) { AutoFlush = true };
+            string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
+            Debug.Log("~Update->Start Task");
+            Task.Run(async () =>
+            {
+                Debug.Log("~Update->Start WritelineAsync");
+                await writer.WriteLineAsync(sendData);
+                Debug.Log("~Update->Done WritelineAsync");
+            });
+            Debug.Log("~Update->End Task");
+        }
+        //if (_TCP.StaticRequest != null) return;
+
+        //if(_TCP.StaticResponse != null && _TCP.StaticResponse.Length > 0)
+        //{
+        //    Debug.Log("~Update->StaticResponse: " + _TCP.StaticResponse);
+        //    string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
+        //    _TCP.StaticRequest = sendData;
+        //}
     }
 
     void OnDestroy()
     {
-        //tcpCore.Close();
     }
 }
-
-
-
-//public static void SetTcpKeepAlive(Socket socket, uint keepaliveTime, uint keepaliveInterval)
-//{
-//    /* the native structure
-//    struct tcp_keepalive {
-//    ULONG onoff;
-//    ULONG keepalivetime;
-//    ULONG keepaliveinterval;
-//    };
-//    */
-
-//    // marshal the equivalent of the native structure into a byte array
-//    uint dummy = 0;
-//    byte[] inOptionValues = new byte[Marshal.SizeOf(dummy) * 3];
-//    BitConverter.GetBytes((uint)(keepaliveTime)).CopyTo(inOptionValues, 0);
-//    BitConverter.GetBytes((uint)keepaliveTime).CopyTo(inOptionValues, Marshal.SizeOf(dummy));
-//    BitConverter.GetBytes((uint)keepaliveInterval).CopyTo(inOptionValues, Marshal.SizeOf(dummy) * 2);
-
-//    // write SIO_VALS to Socket IOControl
-//    socket.IOControl(IOControlCode.KeepAliveValues, inOptionValues, null);
-//}
