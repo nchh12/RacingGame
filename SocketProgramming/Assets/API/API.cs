@@ -4,13 +4,17 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using UnityEngine;
+using PacketHandler;
+using System.Collections.Generic;
 
 public class API
 {
-
     // SINGLE-TON API
+
     private static API _singleton = null;
+
     private API() { }
+
     public static API Instance
     {
         get
@@ -23,18 +27,20 @@ public class API
         }
     }
 
-
+    // Setting
     public const int TIMEOUT_MIL = 2000;
     public const int TRY_INTERVAL = 1000;
+
     static public TcpClient tcpClient;
     static public NetworkStream stream;
-    public string ip { get; internal set; }
-    public int port { get; internal set; } 
+
+    public string IP { get; internal set; }
+    public int Port { get; internal set; } 
 
     public async Task ConnectAsTcpClient(string ip, int port)
     {
-        this.ip = ip;
-        this.port = port;
+        this.IP = ip;
+        this.Port = port;
         int tryLeft = 10;
         for(; tryLeft > 0; tryLeft--)
         {
@@ -74,6 +80,11 @@ public class API
         await reader.WriteLineAsync(data);
     }
 
+    public void StartSendTask(string data)
+    {
+        Task.Run(() => API.Instance.SendData(data));
+    }
+
     public async Task ListenResponse()
     {
         while (true)
@@ -83,10 +94,6 @@ public class API
             {
                 Debug.Log("~ListenResponse->Stream: Null");
                 await Task.Delay(millisecondsDelay: 1000);
-                //if(tcpClient != null)
-                //{
-                //    stream = tcpClient.GetStream();
-                //}
                 continue;
             }
 
@@ -97,10 +104,21 @@ public class API
                 {
                     for (; ; )
                     {
-                        Debug.Log("~ListenResponse->Start Async Read");
+                        //Debug.Log("~ListenResponse->Start Async Read");
                         var response = await reader.ReadLineAsync();
                         if (response == null) { break; }
                         Debug.Log(string.Format("[Client] Server response was '{0}'", response));
+
+                        // Skip Invalid Packet
+                        if (response.Length == 0) continue;
+
+                        var _typePacket = PacketHandler.PacketWrapper<TypePacket>.FromString<TypePacket>(response);
+                        //Debug.Log("[SERVER]: Packet Type:" + _typePacket.type);
+                        foreach (var handler in _handlerList)
+                        {
+                            handler(response);
+                        }
+                        //Debug.Log("[SERVER]: Payload:" + _typePacket.payload);
 
                     }
                     Debug.Log("[Client] Server disconnected");
@@ -108,6 +126,10 @@ public class API
                 catch (IOException)
                 {
                     Debug.Log("[Client] Server disconnected");
+                }
+                catch (Exception e)
+                {
+                    Debug.Log("[Client] - Exception: " + e.Message);
                 }
             }
             
@@ -121,6 +143,19 @@ public class API
         Task.Run(() => connectTask);
         Task.Run(() => listenResponseTask);
 
+    }
+
+    // Handler Logic
+    private List<Action<string>> _handlerList = new List<Action<string>>();
+
+    public void AddHandler(Action<string> handler)
+    {
+        _handlerList.Add(handler);
+    }
+
+    public void RemoveHandler(Action<string> handler)
+    {
+        _handlerList.Remove(handler);
     }
 
 }
