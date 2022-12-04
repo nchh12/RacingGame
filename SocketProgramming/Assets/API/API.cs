@@ -1,5 +1,4 @@
 using System;
-
 using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
@@ -30,6 +29,7 @@ public class API
     // Setting
     public const int TIMEOUT_MIL = 2000;
     public const int TRY_INTERVAL = 1000;
+    public const int MAX_N_TRIAL = 2;
 
     static public TcpClient tcpClient;
     static public NetworkStream stream;
@@ -41,7 +41,7 @@ public class API
     {
         this.IP = ip;
         this.Port = port;
-        int tryLeft = 10;
+        int tryLeft = MAX_N_TRIAL;
         for(; tryLeft > 0; tryLeft--)
         {
             Debug.Log("[Client] - Trial left: " + tryLeft);
@@ -58,13 +58,13 @@ public class API
                     break;
             }
 
-            if (tryLeft == 0)
+            if (tryLeft == 1)
             {
                 throw new TimeoutException("~ConnectAsTcpClient->Time out after 10 trail!");
             }
         }
 
-        Debug.Log("[STATUS] - isConnect: " + tcpClient.Connected);
+        Debug.Log("[Client] - isConnect: " + tcpClient.Connected);
         Debug.Log("[Client] Connected to server");
         stream = tcpClient.GetStream();
     }
@@ -85,53 +85,71 @@ public class API
         Task.Run(() => API.Instance.SendData(data));
     }
 
+    private async Task<bool> waitForConnection()
+    {
+        // 2 more trial to compensate
+        // for the connection lag
+        int n_trial = MAX_N_TRIAL + 2;
+        while(stream == null && n_trial > 0)
+        {
+            n_trial--;
+            //Debug.Log("~waitForConnection->Waiting until connection is established...");
+            await Task.Delay(millisecondsDelay: TRY_INTERVAL);
+            continue;
+        }
+
+        if (n_trial == 0) return false;
+        return true;
+    }
+
     public async Task ListenResponse()
     {
-        while (true)
+        // Waitfor the connection is established
+        var _connected = await waitForConnection();
+        if (!_connected)
         {
+            Debug.Log("~ListenResponse -> Failed to get connection");
+            return;
+        }
 
-            if (stream == null)
-            {
-                Debug.Log("~ListenResponse->Stream: Null");
-                await Task.Delay(millisecondsDelay: 1000);
-                continue;
-            }
 
-            var reader = new StreamReader(stream);
-            for (; ; )
+        var reader = new StreamReader(stream);
+
+        // Restart lisntening if there is Exception
+        for (; ; )
+        {
+            // If connection is drop -> immediately go return
+            if (!tcpClient.Connected) return;
+            try
             {
-                try
+                // Inf. loop to wait and read packets
+                for (; ; )
                 {
-                    for (; ; )
+                    if (!tcpClient.Connected) return;
+                    var response = await reader.ReadLineAsync();
+                    if (response == null) { break; }
+                    Debug.Log(string.Format("[Client] Server response was '{0}'", response));
+
+                    // Skip Invalid Packet
+                    if (response.Length == 0) continue;
+
+                    foreach (var handler in _handlerList)
                     {
-                        //Debug.Log("~ListenResponse->Start Async Read");
-                        var response = await reader.ReadLineAsync();
-                        if (response == null) { break; }
-                        Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-
-                        // Skip Invalid Packet
-                        if (response.Length == 0) continue;
-
-                        var _typePacket = PacketHandler.PacketWrapper<TypePacket>.FromString<TypePacket>(response);
-                        //Debug.Log("[SERVER]: Packet Type:" + _typePacket.type);
-                        foreach (var handler in _handlerList)
-                        {
-                            handler(response);
-                        }
-                        //Debug.Log("[SERVER]: Payload:" + _typePacket.payload);
-
+                        handler(response);
                     }
-                    Debug.Log("[Client] Server disconnected");
+
                 }
-                catch (IOException)
-                {
-                    Debug.Log("[Client] Server disconnected");
-                }
-                catch (Exception e)
-                {
-                    Debug.Log("[Client] - Exception: " + e.Message);
-                }
+                Debug.Log("[Client] Server disconnected");
             }
+            catch (IOException)
+            {
+                Debug.Log("[Client] Server disconnected");
+            }
+            catch (Exception e)
+            {
+                Debug.Log("[Client] - Exception: " + e.Message);
+            }
+            //}
             
         }
     }
@@ -159,171 +177,3 @@ public class API
     }
 
 }
-
-
-
-//using PacketHandler;
-//using System.Text;
-
-//public class _TCP
-//{
-//    static int TIMEOUT_MIL = 10000;
-
-//    public static string StaticResponse { get; set; } = null;
-//    public static string StaticRequest { get; set; } = null;
-//    public static NetworkStream stream { get; set; } = null;
-//    public static TcpClient tcpClient { get; set; } = null;
-
-//    public static async Task ConnectAsTcpClientRaw(string ip, int port)
-//    {
-//        for (; ; )
-//        {
-//            try
-//            {
-//                await Task.Delay(millisecondsDelay: 1000);
-//                using (var tcpClient = new TcpClient())
-//                {
-//                    Debug.Log("[Client] Attempting connection to server " + ip + ":" + port);
-//                    Task connectTask = tcpClient.ConnectAsync(ip, port);
-//                    Task timeoutTask = Task.Delay(millisecondsDelay: 100);
-//                    if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
-//                    {
-//                        throw new TimeoutException();
-//                    }
-
-//                    Debug.Log("[Client] Connected to server");
-//                    using (var networkStream = tcpClient.GetStream())
-//                    using (var reader = new StreamReader(networkStream))
-//                    using (var writer = new StreamWriter(networkStream) { AutoFlush = true })
-//                    {
-//                        //Debug.Log(string.Format("[Client] Writing request '{0}'", ClientRequestString));
-//                        //await writer.WriteLineAsync(ClientRequestString);
-
-//                        try
-//                        {
-//                            for (; ; )
-//                            {
-//                                var response = await reader.ReadLineAsync();
-//                                if (response == null) { break; }
-//                                Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-//                            }
-//                            Debug.Log("[Client] Server disconnected");
-//                        }
-//                        catch (IOException)
-//                        {
-//                            Debug.Log("[Client] Server disconnected");
-//                        }
-//                    }
-//                }
-//            }
-//            catch (TimeoutException)
-//            {
-//                // reconnect
-//                Debug.Log("[Client] Timeout");
-//            }
-//        }
-//    }
-
-
-//    public static async Task ConnectAsTcpClient(string ip, int port)
-//    {
-//        try
-//        {
-//            await Task.Delay(millisecondsDelay: 1000);
-//            tcpClient = new TcpClient();
-//            Debug.Log("[Client] Attempting connection to server " + ip + ":" + port);
-//            Task connectTask = tcpClient.ConnectAsync(ip, port);
-//            Task timeoutTask = Task.Delay(millisecondsDelay: TIMEOUT_MIL);
-
-//            if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
-//            {
-//                throw new TimeoutException();
-//            }
-//            Debug.Log("[Task] Task isCompleted: " + connectTask.IsCompleted);
-//            Debug.Log("[Client] Connected to server");
-//            Debug.Log("[Client] Debug Status: " + tcpClient.Connected);
-//            //stream = tcpClient.GetStream();
-
-//            var networkStream = tcpClient.GetStream();
-//            //Debug.Log("[Stream] IsDataAvailable->" + networkStream.DataAvailable);
-//            var reader = new StreamReader(networkStream);
-//            var writer = new StreamWriter(networkStream) { AutoFlush = true };
-
-//            string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-//            Debug.Log(string.Format("[Client] Writing request '{0}'", sendData));
-//            await writer.WriteLineAsync(sendData);
-
-//            try
-//            {
-//                for (; ; )
-//                {
-//                    Debug.Log("[Client] Start Read Async");
-//                    var response = await reader.ReadLineAsync();
-//                    if (response == null) { break; }
-//                    Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-//                }
-//                Debug.Log("[Client] Server disconnected");
-//            }
-//            catch (IOException)
-//            {
-//                Debug.Log("[Client] Server disconnected");
-//            }
-
-//        }
-//        catch (TimeoutException)
-//        {
-//            Debug.Log("Timeout!");
-//        }
-//    }
-
-//public static async Task SendData(string data)
-//{
-//    var reader = new StreamWriter(_TCP.stream) { AutoFlush = true };
-//    await reader.WriteLineAsync(data);
-//}
-
-//public static async Task ListenResponse()
-//    {
-//        int count = 10;
-//        while (true)
-//        {
-
-//            if (_TCP.stream == null)
-//            {
-//                if (count == 0) return;
-//                count--;
-//                Debug.Log("~ListenResponse->Stream: Null");
-//                await Task.Delay(millisecondsDelay: 1000);
-//                continue;
-//            }
-
-//            using (var reader = new StreamReader(stream))
-//            {
-//                for (; ; )
-//                {
-//                    //Debug.Log("~ListenResponse->Loop...");
-//                    try
-//                    {
-//                        for (; ; )
-//                        {
-//                            Debug.Log("~ListenResponse->Start Async Read");
-//                            var response = await reader.ReadLineAsync();
-//                            if (response == null) { break; }
-//                            //Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-//                            Debug.Log(response);
-//                            //if (response.Length > 0)
-//                            //{
-//                            //    _TCP.StaticResponse = response;
-//                            //}
-//                        }
-//                        Debug.Log("[Client] Server disconnected");
-//                    }
-//                    catch (IOException)
-//                    {
-//                        Debug.Log("[Client] Server disconnected");
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}

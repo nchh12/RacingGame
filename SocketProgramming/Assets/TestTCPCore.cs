@@ -4,7 +4,7 @@ using PacketHandler;
 
 public class TestTCPCore : MonoBehaviour
 {
-    const string LOCAL_HOTS = "172.16.2.224";
+    const string LOCAL_HOTS = "192.168.1.89";
     const int LOCAL_PORT = 5555;
 
     private string _localString = "";
@@ -22,7 +22,7 @@ public class TestTCPCore : MonoBehaviour
                 if (!wrappedPacket.IsValid()) return;
                 var _data = wrappedPacket.GetData();
                 print("~_listenForConnectedEventPacket->ID: " + _data.id);
-                _localString = _data.id;  
+                _localString = _data.id;
             }
             catch (Exception)
             {
@@ -37,7 +37,7 @@ public class TestTCPCore : MonoBehaviour
                 var wrappedPacket = PacketWrapper<ServerAllowJoinRoom>.FromString<ServerAllowJoinRoom>(response);
                 if (!wrappedPacket.IsValid()) return;
                 var _data = wrappedPacket.GetData();
-                print("~_listenForJoinPacket->ROOM    : " + _data.room);
+                print("~_listenForJoinPacket->ROOM     :" + _data.room);
                 print("~_listenForJoinPacket->userLists: " + String.Join(",", _data.listUsers));
 
             }
@@ -62,10 +62,11 @@ public class TestTCPCore : MonoBehaviour
             API.Instance.StartSendTask(_mes);
         }
 
-        if (_localString.Length > 0)
+        if (_localString.Length > 0 && Time.frameCount < 70)
         {
             Debug.Log("~Test->_localString" + _localString);
         }
+        
     }
 
     void OnDestroy()
