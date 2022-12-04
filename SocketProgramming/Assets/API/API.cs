@@ -9,7 +9,6 @@ using System.Collections.Generic;
 public class API
 {
     // SINGLE-TON API
-
     private static API _singleton = null;
 
     private API() { }
@@ -34,8 +33,12 @@ public class API
     static public TcpClient tcpClient;
     static public NetworkStream stream;
 
+    // GLOBAL DATA
     public string IP { get; internal set; }
-    public int Port { get; internal set; } 
+    public int Port { get; internal set; }
+    public string ClientID { get; set; } = null;
+
+
 
     public async Task ConnectAsTcpClient(string ip, int port)
     {
@@ -126,6 +129,7 @@ public class API
                 for (; ; )
                 {
                     if (!tcpClient.Connected) return;
+
                     var response = await reader.ReadLineAsync();
                     if (response == null) { break; }
                     Debug.Log(string.Format("[Client] Server response was '{0}'", response));
@@ -149,7 +153,7 @@ public class API
             {
                 Debug.Log("[Client] - Exception: " + e.Message);
             }
-            //}
+            
             
         }
     }
@@ -176,4 +180,54 @@ public class API
         _handlerList.Remove(handler);
     }
 
+    // Extra utility function
+    /// <summary>
+    /// AutoListenForConnectedEvent: This function submit the handler of
+    /// first packet, which is includes the client_id.
+    /// </summary>
+    public void AutoListenForConnectedEvent()
+    {
+        Action<string> _listenForConnectedEventPacket = (response) =>
+        {
+            try
+            {
+                var wrappedPacket = PacketWrapper<ConnectedResponsePacket>.FromString<ConnectedResponsePacket>(response);
+                if (!wrappedPacket.IsValid()) return;
+                var _data = wrappedPacket.GetData();
+                Debug.Log("~_listenForConnectedEventPacket->ID: " + _data.id);
+                API.Instance.ClientID = _data.id;
+            }
+            catch (Exception)
+            {
+
+            }
+        };
+
+        API.Instance.AddHandler(_listenForConnectedEventPacket);
+    }
+
+}
+
+static class APIUtil
+{
+    public static void AddListenerForConnectedEvent()
+    {
+        Action<string> _listenForConnectedEventPacket = (response) =>
+        {
+            try
+            {
+                var wrappedPacket = PacketWrapper<ConnectedResponsePacket>.FromString<ConnectedResponsePacket>(response);
+                if (!wrappedPacket.IsValid()) return;
+                var _data = wrappedPacket.GetData();
+                Debug.Log("~_listenForConnectedEventPacket->ID: " + _data.id);
+                API.Instance.ClientID = _data.id;
+            }
+            catch (Exception)
+            {
+
+            }
+        };
+
+        API.Instance.AddHandler(_listenForConnectedEventPacket);
+    }
 }

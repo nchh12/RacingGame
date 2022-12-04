@@ -5,15 +5,22 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 using System.Text.RegularExpressions;
+using System;
+using PacketHandler;
+using System.Threading.Tasks;
 
 public class MainMenu : MonoBehaviour
 {
     public static string user_name;
+    public static ServerAllowJoinRoom roomData = null;
+
     public TMP_InputField user_input;
     public Button startBtn;
 
-    List<string> mockUsernames; 
-    Regex checkPattern = new Regex(@"^[a-zA-Z0-9_]+$"); //Only accept'a'...'z', 'A'...'Z', '0'...'9', '_'and the length is not longer than 10 characters
+    List<string> mockUsernames;
+    // Only accept'a'...'z', 'A'...'Z', '0'...'9', '_' and
+    // the length is not longer than 10 characters
+    Regex checkPattern = new Regex(@"^[a-zA-Z0-9_]+$");
 
     bool patternError = false;
     bool lengthError = false;
@@ -23,11 +30,18 @@ public class MainMenu : MonoBehaviour
     TMP_Text lengthErrorText;
     TMP_Text uniqueErrorText;
 
+    const string LOCAL_HOST = "192.168.1.89";
+    const int LOCAL_PORT = 5555;
+
     private void Start()
     {
+        // Start Connect -> Get ID
+        APIUtil.AddListenerForConnectedEvent();
+        API.Instance.ConnectAndListen(LOCAL_HOST, LOCAL_PORT);
+
         getInfoFromServer();
-        //Disable 'start' button when nothing is inputted
-        startBtn.interactable = false; 
+        // Disable 'start' button when nothing is inputted
+        startBtn.interactable = false;
         user_input.Select();
 
         patternErrorText = GameObject.Find("PatternError").GetComponent<TMP_Text>();
@@ -57,51 +71,79 @@ public class MainMenu : MonoBehaviour
         patternError = false;
         lengthError = false;
         uniqueError = false;
+        // connectionError
 
-        if (user_input.text.Length > 0 && user_input.text.Length <= 10)
+        // TODO: Cannot connected case
+        if(API.Instance.ClientID is null)
         {
-            if (checkPattern.IsMatch(user_input.text))
-            {
-                if (!mockUsernames.Contains(user_input.text))
-                {
-                    user_name = user_input.text;
-                    return true;
-                }
-                else
-                {
-                    Debug.Log("Username already existed");
-                    uniqueError = true;
-                }
-            }
-            else
-            {
-                Debug.Log("Your username is in wrong format");
-                patternError = true;
-            }
+            Debug.Log("~sendUsername->Null ClientId");
+            return false;
         }
-        else
+
+        if (API.Instance.ClientID.Length < 3)
+        {
+            Debug.Log("~sendUsername->ClientId " + API.Instance.ClientID + " is in wrong format");
+            return false;
+        }
+
+        if (user_input.text.Length == 0 || user_input.text.Length > 10)
         {
             Debug.Log("Your username is too long");
             lengthError = true;
+            return false;
         }
+
+        if (!checkPattern.IsMatch(user_input.text))
+        {
+            Debug.Log("Your username is in wrong format");
+            patternError = true;
+            return false;
+        }
+
+        // Get username section
+        user_name = user_input.text;
+        // Add the last 3 character of ClientID
+        var _tmp = API.Instance.ClientID.Substring(API.Instance.ClientID.Length - 3, 3);
+        user_name += _tmp;
+
+
+        // Prepare: Add listener for ServerAllowJoinRoom
+        Action<string> _listenForAllowJoinPacket = (response) =>
+        {
+            var _wrapper = PacketWrapper<ServerAllowJoinRoom>.FromString<ServerAllowJoinRoom>(response);
+            if (!_wrapper.IsValid()) return;
+
+            roomData = _wrapper.GetData();
+            SceneManager.LoadScene("LobbyScreen");
+        };
+
+        API.Instance.AddHandler(_listenForAllowJoinPacket);
+
+        // Start: Send a request to server
+        var _joinPacket = new JoinRoomPacket(user_name);
+        var _packet = PacketWrapper<JoinRoomPacket>.FromData(_joinPacket);
+        API.Instance.StartSendTask(_packet.StringifyPayload());
+
+        // Wait for the response -> roomData = _data;
+
+        return true;
         
-        return false;
     }
+
     public void PlayGame()
     {
         if (sendUsername())
         {
             Debug.Log("Hello " + user_name);
-            SceneManager.LoadScene("LobbyScreen");
         }
         else
         {
             //display error
             if (patternError == true)
-               patternErrorText.color = new Color32(255, 0, 9, 255);
+                patternErrorText.color = new Color32(255, 0, 9, 255);
             else
                 patternErrorText.color = new Color32(255, 255, 255, 255);
-            
+
             if (lengthError == true)
                 lengthErrorText.color = new Color32(255, 0, 9, 255);
             else

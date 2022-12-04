@@ -7,6 +7,8 @@ using UnityEngine.UI;
 
 public class WaitingLobby : MonoBehaviour
 {
+    const int MIN_NUM_OF_PLAYER = 3;
+
     private int minNumOfPlayer;
     private string curPlayerUsername;
     private int curNumOfPlayer;
@@ -21,7 +23,7 @@ public class WaitingLobby : MonoBehaviour
 
     void getGameInfoFromServer()
     {
-        minNumOfPlayer = 3;
+        minNumOfPlayer = MIN_NUM_OF_PLAYER;
         getListOfPlayers();
         curPlayerUsername = MainMenu.user_name != null ? MainMenu.user_name : "test";
         curUserList.Add(new User(curPlayerUsername, curPlayerUsername, 0));
@@ -30,8 +32,11 @@ public class WaitingLobby : MonoBehaviour
 
     void getListOfPlayers()
     {
-        curUserList.Add(new User("client-1", "client-1", 0));
-        curUserList.Add(new User("client-2", "client-2", 0));
+        var _roomData = MainMenu.roomData;
+        foreach(var username in _roomData.listUsers)
+        {
+            curUserList.Add(new User(username, username, 0));
+        }
     }
 
     void updatePlayerUI(List<User> playerList)
