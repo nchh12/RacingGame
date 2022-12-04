@@ -3,153 +3,72 @@ using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using UnityEngine;
-
-public class _TCP
-{
-    static int TIMEOUT_MIL = 10000;
-
-    public static string StaticResponse { get; set; } = null;
-    public static string StaticRequest { get; set; } = null;
-    public static NetworkStream stream { get; set; } = null;
-    public static TcpClient tcpClient { get; set; } = null;
-
-
-    public static async Task ConnectAsTcpClient(string ip, int port)
-    {
-
-        try
-        {
-            await Task.Delay(millisecondsDelay: 1000);
-            tcpClient = new TcpClient();
-            Debug.Log("[Client] Attempting connection to server " + ip + ":" + port);
-            Task connectTask = tcpClient.ConnectAsync(ip, port);
-            Task timeoutTask = Task.Delay(millisecondsDelay: TIMEOUT_MIL);
-
-            if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
-            {
-                throw new TimeoutException();
-            }
-
-            Debug.Log("[Client] Connected to server");
-            stream = tcpClient.GetStream();
-            //using (var networkStream = tcpClient.GetStream())
-            //var reader = new StreamReader(stream);
-            //using (var writer = new StreamWriter(networkStream) { AutoFlush = true }) ;
-            
-            //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-            //Debug.Log(string.Format("[Client] Writing request '{0}'", sendData));
-            //await writer.WriteLineAsync(sendData);
-
-            //try
-            //{
-            //    for (; ; )
-            //    {
-            //        var response = await reader.ReadLineAsync();
-            //        if (response == null) { break; }
-            //        Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-            //    }
-            //    Debug.Log("[Client] Server disconnected");
-            //}
-            //catch (IOException)
-            //{
-            //    Debug.Log("[Client] Server disconnected");
-            //}
-            
-        }
-        catch (TimeoutException)
-        {
-            Debug.Log("Timeout!");
-        }
-    }
-
-    public static async Task SendData(string data)
-    {
-        var reader = new StreamWriter(_TCP.stream) { AutoFlush = true};
-        await reader.WriteLineAsync(data);
-    }
-
-    public static async Task ListenResponse()
-    {
-        while (true)
-        {
-         
-            if (_TCP.stream == null)
-            {
-                Debug.Log("~ListenResponse->Stream: Null");
-                await Task.Delay(millisecondsDelay: 1000);
-                continue;
-            }
-
-            using (var reader = new StreamReader(stream))
-            {
-                for (; ; )
-                {
-                    //Debug.Log("~ListenResponse->Loop...");
-                    try
-                    {
-                        for (; ; )
-                        {
-                            Debug.Log("~ListenResponse->Start Async Read");
-                            var response = await reader.ReadLineAsync();
-                            if (response == null) { break; }
-                            Debug.Log(string.Format("[Client] Server response was '{0}'", response));
-                            //if (response.Length > 0)
-                            //{
-                            //    _TCP.StaticResponse = response;
-                            //}
-                        }
-                        Debug.Log("[Client] Server disconnected");
-                    }
-                    catch (IOException)
-                    {
-                        Debug.Log("[Client] Server disconnected");
-                    }
-                }
-            }
-        }
-    }
-}
+using PacketHandler;
 
 public class TestTCPCore : MonoBehaviour
 {
+    const string LOCAL_HOTS = "172.16.2.224";
+    const int LOCAL_PORT = 5555;
+
     void Start()
     {
         Application.targetFrameRate = 10;
         Debug.Log("~Start:Start TCP client");
-        Task.Run(() => _TCP.ConnectAsTcpClient("6.tcp.ngrok.io", 18008));
-        Task.Run(() => _TCP.ListenResponse());
+
+        API.Instance.ConnectAndListen(LOCAL_HOTS, LOCAL_PORT);
+        
+
+        //const string path = "/Users/hung.nh/codespace/yauangon/RacingGame/join_test.json";
+        //StringBuilder builder = new StringBuiler();
+        //string result;
+        //using (StreamReader reader = File.OpenText(path))
+        //{
+        //    result = reader.ReadLine();
+        //    Debug.Log("ReadFile: " + result);
+        //}
+        //string result = "{\"payload\":{\"id\":\"client-id-b03aab33-efdb-4104-8ae4-d43c07e2a2df\"},\"type\":\"SERVER_NEW_USER\"}";
+
+        //var packet = PacketWrapper<TypePacket>.FromString<TypePacket>(result);
+        //Debug.Log("packet->type: " + packet.type);
+        //Debug.Log("packet->payload: " + packet.payload);
+        //Debug.Log(packet.GetData().GetType());
     }
 
     void Update()
     {
-        //Debug.Log("~Update->FrameCount:" + Time.frameCount);
         if (Time.frameCount == 60)
         {
-            string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-            Task.Run(() => _TCP.SendData(sendData));
-
-            //if (!_TCP.tcpClient.Connected)
-            //{
-            //    Debug.Log("~Update->Not Connnect????");
-            //    throw new Exception("very sadddddd");
-            //}
-            //if (_TCP.stream is null)
-            //{
-            //    throw new Exception("so sadddddd");
-            //}
-
-            //var writer = new StreamWriter(_TCP.stream) { AutoFlush = true };
-            //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
-            //Debug.Log("~Update->Start Task");
-            //Task.Run(async () =>
-            //{
-            //    Debug.Log("~Update->Start WritelineAsync");
-            //    await writer.WriteLineAsync(sendData);
-            //    await writer.FlushAsync();
-            //    Debug.Log("~Update->Done WritelineAsync");
-            //});
-            //Debug.Log("~Update->End Task");
+            Debug.Log("~Update:->SendData");
+            string sendData = "{\"payload\": { \"username\":\"client-1\" }, \"type\":\"CLIENT_JOIN_ROOM\" }";
+            Task.Run(() => API.Instance.SendData(sendData));
         }
+        
+
+        //Debug.Log(packet.Data.Username);
+        //Task.Run(() => _TCP.SendData(sendData));
+
+        //if (!_TCP.tcpClient.Connected)
+        //{
+        //    Debug.Log("~Update->Not Connnect????");
+        //    throw new Exception("very sadddddd");
+        //}
+        //if (_TCP.stream is null)
+        //{
+        //    throw new Exception("so sadddddd");
+        //}
+
+        //var writer = new StreamWriter(_TCP.stream) { AutoFlush = true };
+        //string sendData = "{\"payload\":{\"username\":\"client - 1\"},\"type\":\"CLIENT_JOIN_ROOM\"}";
+        //Debug.Log("~Update->Start Task");
+        //Task.Run(async () =>
+        //{
+        //    Debug.Log("~Update->Start WritelineAsync");
+        //    await writer.WriteLineAsync(sendData);
+        //    await writer.FlushAsync();
+        //    Debug.Log("~Update->Done WritelineAsync");
+        //});
+        //Debug.Log("~Update->End Task");
+        //}
 
         //if (_TCP.StaticRequest != null) return;
 
