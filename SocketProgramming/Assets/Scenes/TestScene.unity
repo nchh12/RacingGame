@@ -219,3 +219,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 103a7522f268743578de7c6569026ce2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  LOCAL_HOTS: 172.16.2.224
+  LOCAL_PORT: 5555
