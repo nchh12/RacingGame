@@ -4,10 +4,12 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System;
+using PacketHandler;
 
 public class WaitingLobby : MonoBehaviour
 {
-    const int MIN_NUM_OF_PLAYER = 3;
+    const int MIN_NUM_OF_PLAYER = 4;
 
     private int minNumOfPlayer;
     private string curPlayerUsername;
@@ -26,7 +28,7 @@ public class WaitingLobby : MonoBehaviour
         minNumOfPlayer = MIN_NUM_OF_PLAYER;
         getListOfPlayers();
         curPlayerUsername = MainMenu.user_name != null ? MainMenu.user_name : "test";
-        curUserList.Add(new User(curPlayerUsername, curPlayerUsername, 0));
+        //curUserList.Add(new User(curPlayerUsername, curPlayerUsername, 0));
         curNumOfPlayer = curUserList.Count;
     }
 
@@ -68,7 +70,35 @@ public class WaitingLobby : MonoBehaviour
         getGameInfoFromServer();
         TMP_Text minNumPlayer = GameObject.Find("MinNumPlayer").GetComponent<TMP_Text>();
         minNumPlayer.text = minNumOfPlayer.ToString();
+
+        Action<string> _listenForStartRoundPacket = (response) =>
+        {
+            try
+            {
+                var wrappedPacket = PacketWrapper<ServerStartRoundPacket>.FromString<ServerStartRoundPacket>(response);
+                if (!wrappedPacket.IsValid()) return;
+                var _data = wrappedPacket.GetData();
+                firstServerPacket = _data;
+                //Debug.Log("~_listenForStartRound -> Round:    " + _data.round);
+                //Debug.Log("~_listenForStartRound -> Question: " + _data.question);
+
+                //foreach(var _dict in _data.listRankedUser)
+                //{
+                //    Debug.Log(_dict["score"]);
+                //    Debug.Log(_dict["id"]);
+                //    Debug.Log(_dict["username"]);
+                //}
+            }
+            catch (Exception)
+            {
+
+            }
+        };
+
+        API.Instance.AddHandler(_listenForStartRoundPacket);
     }
+
+    public static ServerStartRoundPacket firstServerPacket = null;
 
     // Update is called once per frame
     void Update()
@@ -98,7 +128,15 @@ public class WaitingLobby : MonoBehaviour
         {
             Debug.Log("Starting Game!");
             timeLeft = 0;
-            SceneManager.LoadScene("RoundScreen");
+
+            if (firstServerPacket is null)
+            {
+
+            }
+            else
+            {
+                SceneManager.LoadScene("RoundScreen");
+            }
         }
         
     }

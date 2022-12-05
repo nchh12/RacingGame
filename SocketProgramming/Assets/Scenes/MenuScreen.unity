@@ -1014,7 +1014,7 @@ GameObject:
   - component: {fileID: 559408170}
   - component: {fileID: 559408169}
   m_Layer: 5
-  m_Name: RoomFull
+  m_Name: RoomFullError
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

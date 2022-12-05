@@ -80,7 +80,9 @@ public class GameRoom : MonoBehaviour
         getListOfPlayers();
         initiatePlayerUI(WaitingLobby.curUserList);
         submitBtn.onClick.AddListener(delegate { submitAnswer(timeLeft); });
+        
         StartCoroutine(startGame());
+        
     }
 
     IEnumerator startGame()
