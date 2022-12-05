@@ -25,10 +25,14 @@ public class MainMenu : MonoBehaviour
     bool patternError = false;
     bool lengthError = false;
     bool uniqueError = false;
+    bool connectionError = false;
+    bool isRoomFull = false;
 
     TMP_Text patternErrorText;
     TMP_Text lengthErrorText;
     TMP_Text uniqueErrorText;
+    TMP_Text connectionErrorText;
+    TMP_Text roomFullText;
 
     const string LOCAL_HOST = "192.168.1.89";
     const int LOCAL_PORT = 5555;
@@ -47,6 +51,8 @@ public class MainMenu : MonoBehaviour
         patternErrorText = GameObject.Find("PatternError").GetComponent<TMP_Text>();
         lengthErrorText = GameObject.Find("LengthError").GetComponent<TMP_Text>();
         uniqueErrorText = GameObject.Find("UniqueError").GetComponent<TMP_Text>();
+        connectionErrorText = GameObject.Find("ConnectionError").GetComponent<TMP_Text>();
+        roomFullText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
     }
 
     public void UpdateInputField()
@@ -71,14 +77,18 @@ public class MainMenu : MonoBehaviour
         patternError = false;
         lengthError = false;
         uniqueError = false;
-        // connectionError
+        connectionError = false;
+        isRoomFull = false;
 
         // TODO: Cannot connected case
         if(API.Instance.ClientID is null)
         {
             Debug.Log("~sendUsername->Null ClientId");
+            connectionError = true;
             return false;
         }
+
+        //TODO: Room full error
 
         if (API.Instance.ClientID.Length < 3)
         {
@@ -139,6 +149,40 @@ public class MainMenu : MonoBehaviour
         else
         {
             //display error
+            if (connectionError == true)
+            {
+                connectionErrorText.enabled = true;
+                patternErrorText.enabled = false;
+                lengthErrorText.enabled = false;
+                uniqueErrorText.enabled = false;
+                roomFullText.enabled = false;
+            }
+            else
+            {
+                connectionErrorText.enabled = false;
+                patternErrorText.enabled = true;
+                lengthErrorText.enabled = true;
+                uniqueErrorText.enabled = true;
+                roomFullText.enabled = true;
+            }
+
+            if (isRoomFull == true)
+            {
+                roomFullText.enabled = true;
+                patternErrorText.enabled = false;
+                lengthErrorText.enabled = false;
+                uniqueErrorText.enabled = false;
+                connectionErrorText.enabled = false;
+            }
+            else
+            {
+                roomFullText.enabled = false;
+                patternErrorText.enabled = true;
+                lengthErrorText.enabled = true;
+                uniqueErrorText.enabled = true;
+                connectionErrorText.enabled = true;
+            }
+                
             if (patternError == true)
                 patternErrorText.color = new Color32(255, 0, 9, 255);
             else

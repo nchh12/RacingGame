@@ -4,6 +4,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Random = System.Random;
 
 public static class StringExtensions
 {
@@ -26,8 +27,10 @@ public class Question
 
 public class GameRoom : MonoBehaviour
 {
+    private static readonly Random random = new Random();
+
     private int numOfRounds;
-    private float timePerRound = 10;
+    private float timePerRound = 3;
     private float timeLeft;
     private string curPlayerAnswer;
 
@@ -40,12 +43,15 @@ public class GameRoom : MonoBehaviour
 
     public Button submitBtn;
 
+    public Image resultImg;
+
+    public GameObject finalResultBoard;
+
     private List<Question> questionList = new List<Question>();
 
     void getGameInfoFromServer()
     {
-        numOfRounds = 5;
-
+        numOfRounds = 3;
     }
     
     void getQuestionFromServer()
@@ -57,6 +63,13 @@ public class GameRoom : MonoBehaviour
         questionList.Add(new Question("9 - 10", "-1"));
     }
 
+    void getListOfPlayers()
+    {
+        WaitingLobby.curUserList.Add(new User("client-1", "client-1", 0));
+        WaitingLobby.curUserList.Add(new User("client-2", "client-2", 0));
+        WaitingLobby.curUserList.Add(new User("test", "test", 0));
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -64,7 +77,9 @@ public class GameRoom : MonoBehaviour
         timeLeft = timePerRound;
         totalRoundNumberTxt.text = "/" + numOfRounds.ToString();
         user_input.Select();
-
+        getListOfPlayers();
+        initiatePlayerUI(WaitingLobby.curUserList);
+        submitBtn.onClick.AddListener(delegate { submitAnswer(timeLeft); });
         StartCoroutine(startGame());
     }
 
@@ -72,14 +87,19 @@ public class GameRoom : MonoBehaviour
     {
         for (int i = 1; i <= numOfRounds; ++i)
         {
+            //Update UI for new round
             timeLeft = timePerRound;
             curPlayerAnswer = null; //reset answer
             user_input.text = null;
             user_input.interactable = true;
             submitBtn.interactable = true;
+            resultImg.enabled = false;
+            user_input.textComponent.color = Color.white;
+            
             user_input.Select();
             Debug.Log("------------- Round " + i.ToString() + " -------------");
             roundNumberTxt.text = i.ToString();
+
             getQuestionFromServer();
             updateQuestion(questionList[i - 1]);
 
@@ -93,89 +113,33 @@ public class GameRoom : MonoBehaviour
             yield return new WaitForSeconds(1f);
 
             updateAnswer(questionList[i - 1]);
+            resultImg.enabled = true;
             if (questionList[i - 1].answer.Equals(curPlayerAnswer))
             {
                 Debug.Log("Round " + i.ToString() + " - Correct");
+                resultImg.sprite = Resources.Load<Sprite>("Sprites/Checked_04");
+                user_input.textComponent.color = Color.green;
             }
             else
             {
                 Debug.Log("Round " + i.ToString() + " - Wrong Answer");
+                resultImg.sprite = Resources.Load<Sprite>("Sprites/Checked_03");
+                user_input.textComponent.color = Color.red;
             }
-            yield return new WaitForSeconds(3f);
-            //update point
-            continue;
-            //next question
 
-            ////GetInput
-            //if (timeLeft > 0)
-            //{
-            //    //Debug.Log(timeLeft);
-            //    timeLeft -= Time.deltaTime;
-            //    updateTimer(timeLeft);
-            //}
-            //else
-            //{
-            //    Debug.Log("Finish round!");
-            //    timeLeft = timePerRound;
-            //    //check answer and return result
-            //    updateAnswer(questionList[i - 1]);
-            //    if (questionList[i - 1].answer.Equals(curPlayerAnswer))
-            //    {
-            //        Debug.Log("Round " + i.ToString() + " - Correct");
-            //    }
-            //    else
-            //    {
-            //        Debug.Log("Round " + i.ToString() + " - Wrong Answer");
-            //    }
-            //    yield return new WaitForSeconds(5f);
-            //    //update point
-            //    continue;
-            //    //next question
-            //}
+            updateScore(WaitingLobby.curUserList);
+
+            WaitingLobby.curUserList.Sort(SortUserByScore);
+
+            updatePlayerUI(WaitingLobby.curUserList);
+
+            yield return new WaitForSeconds(3f);
+            
+            continue; //move to next question
 
         }
-    }
 
-    // Update is called once per frame
-    void Update()
-    {
-        //for (int i = 1; i <= numOfRounds; ++i)
-        //{
-        //    curPlayerAnswer = null; //reset answer
-        //    //user_input.text = null;
-        //    //user_input.enabled = true;
-        //    Debug.Log("------------- Round " + i.ToString() + " -------------");
-        //    roundNumberTxt.text = i.ToString();
-        //    getQuestionFromServer();
-        //    updateQuestion(questionList[i - 1]);
-            
-        //    //GetInput
-        //    if (timeLeft > 0)
-        //    {
-        //        //Debug.Log(timeLeft);
-        //        timeLeft -= Time.deltaTime;
-        //        updateTimer(timeLeft);
-        //    }
-        //    else
-        //    {
-        //        Debug.Log("Finish round!");
-        //        timeLeft = timePerRound;
-        //        //check answer and return result
-        //        updateAnswer(questionList[i - 1]);
-        //        if (questionList[i - 1].answer.Equals(curPlayerAnswer))
-        //        {
-        //            Debug.Log("Round " + i.ToString() + " - Correct");
-        //        }
-        //        else
-        //        {
-        //            Debug.Log("Round " + i.ToString() + " - Wrong Answer");
-        //        }
-        //        //update point
-        //        continue;
-        //        //next question
-        //    }
-        //}
-
+        endGame(WaitingLobby.curUserList[0]);
     }
 
     void updateQuestion(Question q)
@@ -194,17 +158,55 @@ public class GameRoom : MonoBehaviour
             $"{q.answer.AddColor(Color.green)}");
     }
 
-    public void submitAnswer()
+    public void submitAnswer(float answerTime)
     {
         curPlayerAnswer = user_input.text;
-        Debug.Log("Answer Submitted: " + curPlayerAnswer);
+        Debug.Log("Answer Submitted: " + curPlayerAnswer + " - Time: " + answerTime.ToString());
         user_input.interactable = false;
         submitBtn.interactable = false;
+        user_input.textComponent.color = Color.gray;
+
+        //TODO: send answer to server
     }
 
-    void updateScore(User curUser)
+    void initiatePlayerUI(List<User> playerList)
     {
+        //update current players avatar and username
+        updatePlayerUI(playerList);
 
+        //hide empty player frame
+        for (int i = playerList.Count + 1; i <= 4; i++)
+        {
+            Image playerFrame = GameObject.Find("Player" + i).GetComponent<Image>();
+            playerFrame.transform.gameObject.SetActive(false);
+        }
+    }
+
+    void updatePlayerUI(List<User> playerList)
+    {
+        //update current players avatar and username
+        for (int i = 1; i <= playerList.Count; i++)
+        {
+            Image playerAvatar = GameObject.Find("Avatar" + i).GetComponent<Image>();
+            TMP_Text playerUsername = GameObject.Find("Username" + i).GetComponent<TMP_Text>();
+            TMP_Text playerScore = GameObject.Find("Score" + i).GetComponent<TMP_Text>();
+            playerUsername.text = playerList[i - 1].username;
+            playerAvatar.sprite = Resources.Load<Sprite>("Sprites/" + playerList[i - 1].avatarImage);
+            playerScore.text = playerList[i - 1].score.ToString();
+        }
+    }
+
+    void updateScore(List<User> playerList)
+    {
+        for (int i = 1; i <= playerList.Count; i++)
+        {
+            playerList[i - 1].score += random.Next(1, 10);
+        }
+    }
+
+    static int SortUserByScore(User p1, User p2)
+    {
+        return p2.score.CompareTo(p1.score);
     }
 
     void updateTimer(float currentTime)
@@ -215,8 +217,23 @@ public class GameRoom : MonoBehaviour
         timerTxt.text = ((int)seconds).ToString();
     }
 
-    void endGame()
+    void endGame(User winner)
     {
+        finalResultBoard.transform.gameObject.SetActive(true);
 
+        //declare winner
+        Image playerAvatar = GameObject.Find("WinnerAvatar").GetComponent<Image>();
+        TMP_Text playerUsername = GameObject.Find("WinnerName").GetComponent<TMP_Text>();
+        TMP_Text playerScore = GameObject.Find("WinnerScore").GetComponent<TMP_Text>();
+        playerUsername.text = winner.username;
+        playerAvatar.sprite = Resources.Load<Sprite>("Sprites/" + winner.avatarImage);
+        playerScore.text = winner.score.ToString();
+
+        //return to lobby room
+    }
+
+    public void returnToLobby()
+    {
+        SceneManager.LoadScene("LobbyScreen");
     }
 }

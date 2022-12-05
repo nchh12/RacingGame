@@ -78,46 +78,8 @@ public class WaitingLobby : MonoBehaviour
         countdownTxt.text = (minNumOfPlayer - curNumOfPlayer).ToString();
         if (curNumOfPlayer >= minNumOfPlayer)
         {
-            //start timer
-            //timerOn = true;
-            //if (timeLeft > 7.99 && timeLeft < 8.0)
-            //{
-            //    curUserList.Add(new User("client-2", "client-2", 0));
-            //}
-            //if (timeLeft > 5.99 && timeLeft < 6.0)
-            //{
-            //    curUserList.RemoveAt(0);
-            //}
-            //if (timeLeft > 3.99 && timeLeft < 4.0)
-            //{
-            //    curUserList.Add(new User("client-1", "client-1", 0));
-            //    //curUserList.RemoveAt(1);
-            //}
-            //if (timeLeft > 1.99 && timeLeft < 2.0)
-            //{
-            //    curUserList.RemoveAt(1);
-            //}
-            //if (timeLeft > 0)
-            //{
-            //    //Debug.Log(timeLeft);
-            //    timeLeft -= Time.deltaTime;
-            //    updateTimer(timeLeft);
-            //}
-            //else
-            //{
-                Debug.Log("Starting Game!");
-            //timeLeft = 0;
-            //timerOn = false;
             StartCoroutine(startGame());
-                
-            //}
         }
-        //else
-        //{
-        //    reset timer
-        //    timerOn = false;
-        //    timeLeft = timeAmount;
-        //}
     }
 
     IEnumerator startGame()
@@ -128,7 +90,7 @@ public class WaitingLobby : MonoBehaviour
 
         if (timeLeft > 0)
         {
-            Debug.Log(timeLeft);
+            //Debug.Log(timeLeft);
             timeLeft -= Time.deltaTime;
             updateTimer(timeLeft);
         }
