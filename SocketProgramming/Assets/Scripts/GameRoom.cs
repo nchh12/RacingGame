@@ -5,6 +5,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Random = System.Random;
+using System;
+using PacketHandler;
 
 public static class StringExtensions
 {
@@ -30,7 +32,7 @@ public class GameRoom : MonoBehaviour
     private static readonly Random random = new Random();
 
     private int numOfRounds;
-    private float timePerRound = 3;
+    private const float TIME_PER_ROUND = 10 - 2; // is the delay time for UI
     private float timeLeft;
     private string curPlayerAnswer;
 
@@ -51,33 +53,95 @@ public class GameRoom : MonoBehaviour
 
     void getGameInfoFromServer()
     {
-        numOfRounds = 3;
+        numOfRounds = 5;
     }
     
-    void getQuestionFromServer()
+    static bool bEndRound = false;
+
+
+    void AddStartRoundListen()
     {
-        questionList.Add(new Question("8 x 6", "48"));
-        questionList.Add(new Question("9 + 10", "19"));
-        questionList.Add(new Question("-5 : 1", "-5"));
-        questionList.Add(new Question("12 % 5", "2"));
-        questionList.Add(new Question("9 - 10", "-1"));
+        // Listen for the middle (not the first start round packet)
+        Action<string> _listenForMiddleStartRound = (response) =>
+        {
+            try
+            {
+                Debug.Log("[RESPONSE] - " + response);
+                var wrappedPacket = PacketWrapper<ServerStartRoundPacket>.FromString<ServerStartRoundPacket>(response);
+                if (!wrappedPacket.IsValid()) return;
+                var _data = wrappedPacket.GetData();
+                // Signaling the end-round
+                bEndRound = true;
+                gameRound = _data.round;
+                currentServerStartRoundPacket = _data;
+
+
+            }
+            catch (Exception e)
+            {
+                Debug.Log("~_listenForMiddleStartRound->" + e.Message);
+                Debug.Log("~_listenForMiddleStartRound->" + e.StackTrace);
+            }
+        };
+        API.Instance.AddHandler(_listenForMiddleStartRound);
     }
 
-    void getListOfPlayers()
+
+    public void updateData()
     {
-        WaitingLobby.curUserList.Add(new User("client-1", "client-1", 0));
-        WaitingLobby.curUserList.Add(new User("client-2", "client-2", 0));
-        WaitingLobby.curUserList.Add(new User("test", "test", 0));
+        var _data = currentServerStartRoundPacket;
+        // Update Q/ A data
+        questionList.Add(new Question(_data.question, _data.answer));
+
+        // Update user list with info
+        WaitingLobby.curUserList.Clear();
+        foreach (var _playerInfo in _data.listRankedUser)
+        {
+            try
+            {
+                WaitingLobby.curUserList.Add(new User(
+                    id: _playerInfo["id"],
+                    username: _playerInfo["username"],
+                    score: Int32.Parse(_playerInfo["score"]))
+                   );
+            }
+            catch (KeyNotFoundException e)
+            {
+                Debug.Log("~_listenForMiddleStartRound->KeyNotFoundException->Message" + e.Message);
+                Debug.Log("~_listenForMiddleStartRound->KeyNotFoundException->StackTrace" + e.StackTrace);
+            }
+        }
     }
 
+
+    public static ServerStartRoundPacket currentServerStartRoundPacket = null;
     // Start is called before the first frame update
     void Start()
     {
+        currentServerStartRoundPacket = WaitingLobby.firstServerPacket;
+        if(currentServerStartRoundPacket is null)
+        {
+            Debug.Log("~Start->currentServerStartRoundPacket is null" +
+                "->This can not be happend...");
+        }
+
+        // Update the data for render
+        updateData();
+
+        //// Add data from the first packet
+        //questionList.Clear();
+        //questionList.Add(new Question(currentServerStartRoundPacket.answer, ))
+
+        AddStartRoundListen();
         getGameInfoFromServer();
-        timeLeft = timePerRound;
+
+        timeLeft = TIME_PER_ROUND;
         totalRoundNumberTxt.text = "/" + numOfRounds.ToString();
+
         user_input.Select();
-        getListOfPlayers();
+
+        //getListOfPlayers(); -> mock-data
+
         initiatePlayerUI(WaitingLobby.curUserList);
         submitBtn.onClick.AddListener(delegate { submitAnswer(timeLeft); });
         
@@ -89,9 +153,12 @@ public class GameRoom : MonoBehaviour
     {
         for (int i = 1; i <= numOfRounds; ++i)
         {
-            //Update UI for new round
-            timeLeft = timePerRound;
-            curPlayerAnswer = null; //reset answer
+            // Start-round -> true
+            bEndRound = false;
+            // Update UI for new round
+            timeLeft = TIME_PER_ROUND;
+            // Reset answer
+            curPlayerAnswer = null;
             user_input.text = null;
             user_input.interactable = true;
             submitBtn.interactable = true;
@@ -102,20 +169,35 @@ public class GameRoom : MonoBehaviour
             Debug.Log("------------- Round " + i.ToString() + " -------------");
             roundNumberTxt.text = i.ToString();
 
-            getQuestionFromServer();
+            //getQuestionFromServer();
             updateQuestion(questionList[i - 1]);
 
-            while (timeLeft >= 0)
+            // For each second -> update the UI
+            while (timeLeft >= 0 && !bEndRound)
             {
                 timeLeft -= 1;
                 yield return new WaitForSeconds(1f);
                 updateTimer(timeLeft);
             }
 
-            yield return new WaitForSeconds(1f);
+            // Wait for End-round signal
+            // which is set by the API handler of
+            // ServerStartRoundPacket
+            while (!bEndRound)
+            {
+                yield return new WaitForSeconds(0.5f);
+            }
 
+            // Wait an extra 0.5s
+            yield return new WaitForSeconds(0.5f);
+
+            // Update data
+            updateData();
+
+            // Update UI -> Answer
             updateAnswer(questionList[i - 1]);
             resultImg.enabled = true;
+
             if (questionList[i - 1].answer.Equals(curPlayerAnswer))
             {
                 Debug.Log("Round " + i.ToString() + " - Correct");
@@ -129,16 +211,16 @@ public class GameRoom : MonoBehaviour
                 user_input.textComponent.color = Color.red;
             }
 
-            updateScore(WaitingLobby.curUserList);
-
+            // Update UI -> Score
+            // updateScore(WaitingLobby.curUserList);
+            // Update Leaderboard
             WaitingLobby.curUserList.Sort(SortUserByScore);
 
             updatePlayerUI(WaitingLobby.curUserList);
 
-            yield return new WaitForSeconds(3f);
+            yield return new WaitForSeconds(0.5f);
             
             continue; //move to next question
-
         }
 
         endGame(WaitingLobby.curUserList[0]);
@@ -160,6 +242,7 @@ public class GameRoom : MonoBehaviour
             $"{q.answer.AddColor(Color.green)}");
     }
 
+    public static int gameRound = 1;
     public void submitAnswer(float answerTime)
     {
         curPlayerAnswer = user_input.text;
@@ -168,7 +251,10 @@ public class GameRoom : MonoBehaviour
         submitBtn.interactable = false;
         user_input.textComponent.color = Color.gray;
 
-        //TODO: send answer to server
+        var _ansPacket = new ClientAnswer(round: gameRound, answer: curPlayerAnswer);
+        var _packet = PacketWrapper<ClientAnswer>.FromData(_ansPacket);
+        API.Instance.StartSendTask(_packet.StringifyPayload());
+
     }
 
     void initiatePlayerUI(List<User> playerList)
@@ -198,13 +284,13 @@ public class GameRoom : MonoBehaviour
         }
     }
 
-    void updateScore(List<User> playerList)
-    {
-        for (int i = 1; i <= playerList.Count; i++)
-        {
-            playerList[i - 1].score += random.Next(1, 10);
-        }
-    }
+    //void updateScore(List<User> playerList)
+    //{
+    //    for (int i = 1; i <= playerList.Count; i++)
+    //    {
+    //        playerList[i - 1].score += random.Next(1, 10);
+    //    }
+    //}
 
     static int SortUserByScore(User p1, User p2)
     {
@@ -236,6 +322,6 @@ public class GameRoom : MonoBehaviour
 
     public void returnToLobby()
     {
-        SceneManager.LoadScene("LobbyScreen");
+        SceneManager.LoadScene("MenuScreen");
     }
 }
