@@ -17,6 +17,8 @@ public class MainMenu : MonoBehaviour
     public TMP_InputField user_input;
     public Button startBtn;
 
+    public Image loadingCircle;
+
     List<string> mockUsernames;
     // Only accept'a'...'z', 'A'...'Z', '0'...'9', '_' and
     // the length is not longer than 10 characters
@@ -33,6 +35,8 @@ public class MainMenu : MonoBehaviour
     public TMP_Text uniqueErrorText;
     public TMP_Text connectionErrorText;
     public TMP_Text roomFullErrorText;
+
+    bool isLoading = false;
 
     const string LOCAL_HOST = "192.168.1.89";
     const int LOCAL_PORT = 5555;
@@ -55,6 +59,11 @@ public class MainMenu : MonoBehaviour
         //roomFullErrorText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
     }
 
+    private void Update()
+    {
+        LoadingInfo();
+    }
+
     public void UpdateInputField()
     {
         if (!string.IsNullOrEmpty(user_input.text))
@@ -74,6 +83,7 @@ public class MainMenu : MonoBehaviour
 
     bool sendUsername()
     {
+        //isLoading = true;
         Debug.Log(user_input.text);
         patternError = false;
         lengthError = false;
@@ -136,6 +146,7 @@ public class MainMenu : MonoBehaviour
         API.Instance.StartSendTask(_packet.StringifyPayload());
 
         // Wait for the response -> roomData = _data;
+        loadingCircle.gameObject.SetActive(true);
 
         return true;
         
@@ -179,6 +190,11 @@ public class MainMenu : MonoBehaviour
             user_input.text = null;
             user_input.Select();
         }
+    }
+
+    void LoadingInfo()
+    {
+        loadingCircle.gameObject.SetActive(isLoading);
     }
 
     public void QuitGame()
