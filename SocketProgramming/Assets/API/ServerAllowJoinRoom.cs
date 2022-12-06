@@ -29,4 +29,5 @@ namespace PacketHandler
 
         public ServerAllowJoinRoom(string room, List<string> listUsers) { this.room = room; this.listUsers = listUsers; }
     }
+
 }

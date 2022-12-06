@@ -38,8 +38,12 @@ public class MainMenu : MonoBehaviour
 
     bool isLoading = false;
 
-    const string LOCAL_HOST = "192.168.1.89";
-    const int LOCAL_PORT = 5555;
+    // const string LOCAL_HOST = "192.168.1.89";
+    // const int LOCAL_PORT = 5555;
+
+    // tcp://8.tcp.ngro k.io:12162
+    const string LOCAL_HOST = "8.tcp.ngrok.io";
+    const int LOCAL_PORT = 12162;
 
     private void Start()
     {
@@ -52,16 +56,12 @@ public class MainMenu : MonoBehaviour
         startBtn.interactable = false;
         user_input.Select();
 
-        //patternErrorText = GameObject.Find("PatternError").GetComponent<TMP_Text>();
-        //lengthErrorText = GameObject.Find("LengthError").GetComponent<TMP_Text>();
-        //uniqueErrorText = GameObject.Find("UniqueError").GetComponent<TMP_Text>();
-        //connectionErrorText = GameObject.Find("ConnectionError").GetComponent<TMP_Text>();
-        //roomFullErrorText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
     }
 
     private void Update()
     {
         LoadingInfo();
+        //roomFullText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
     }
 
     public void UpdateInputField()
@@ -133,9 +133,19 @@ public class MainMenu : MonoBehaviour
         {
             var _wrapper = PacketWrapper<ServerAllowJoinRoom>.FromString<ServerAllowJoinRoom>(response);
             if (!_wrapper.IsValid()) return;
+            try
+            {
+                roomData = _wrapper.GetData();
+                API.Instance.ClearHandler();
+                SceneManager.LoadScene("LobbyScreen");
 
-            roomData = _wrapper.GetData();
-            SceneManager.LoadScene("LobbyScreen");
+            }
+            catch (Exception e)
+            {
+                Debug.Log("~_listenForAllowJoinPacket->Exception : " + e.Message);
+                Debug.Log("~_listenForAllowJoinPacket->StackTrace: " + e.StackTrace);
+                Debug.Log("~_listenForAllowJoinPacket->Source    : " + e.Source);
+            }
         };
 
         API.Instance.AddHandler(_listenForAllowJoinPacket);
@@ -149,7 +159,7 @@ public class MainMenu : MonoBehaviour
         loadingCircle.gameObject.SetActive(true);
 
         return true;
-        
+
     }
 
     public void PlayGame()

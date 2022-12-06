@@ -4,15 +4,18 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System;
+using PacketHandler;
 
 public class WaitingLobby : MonoBehaviour
 {
-    const int MIN_NUM_OF_PLAYER = 3;
+    const int MIN_NUM_OF_PLAYER = 2;
+    const float COUNT_DOWN = 0.5f;
 
     private int minNumOfPlayer;
     private string curPlayerUsername;
     private int curNumOfPlayer;
-    private float timeLeft = 3;
+    private float timeLeft = COUNT_DOWN;
 
     public GameObject GameInfoFrame;
     public GameObject TimerFrame;
@@ -26,7 +29,7 @@ public class WaitingLobby : MonoBehaviour
         minNumOfPlayer = MIN_NUM_OF_PLAYER;
         getListOfPlayers();
         curPlayerUsername = MainMenu.user_name != null ? MainMenu.user_name : "test";
-        curUserList.Add(new User(curPlayerUsername, curPlayerUsername, 0));
+        //curUserList.Add(new User(curPlayerUsername, curPlayerUsername, 0));
         curNumOfPlayer = curUserList.Count;
     }
 
@@ -68,7 +71,32 @@ public class WaitingLobby : MonoBehaviour
         getGameInfoFromServer();
         TMP_Text minNumPlayer = GameObject.Find("MinNumPlayer").GetComponent<TMP_Text>();
         minNumPlayer.text = minNumOfPlayer.ToString();
+
+        Action<string> _listenForStartRoundPacket = (response) =>
+        {
+            try
+            {
+                var wrappedPacket = PacketWrapper<ServerStartRoundPacket>.FromString<ServerStartRoundPacket>(response);
+                if (!wrappedPacket.IsValid()) return;
+                var _data = wrappedPacket.GetData();
+                // Read the first packet with this type
+                // => Used to pass to the next scene
+                firstServerPacket = _data;
+
+                // Clear the handler to prevent future reading
+                API.Instance.ClearHandler();
+            }
+            catch (Exception)
+            {
+
+            }
+        };
+
+        API.Instance.AddHandler(_listenForStartRoundPacket);
     }
+
+    public static ServerStartRoundPacket firstServerPacket = null;
+    //public static float timesec = null;
 
     // Update is called once per frame
     void Update()
@@ -78,16 +106,20 @@ public class WaitingLobby : MonoBehaviour
         countdownTxt.text = (minNumOfPlayer - curNumOfPlayer).ToString();
         if (curNumOfPlayer >= minNumOfPlayer)
         {
+            // For each frame -> check the time-left
             StartCoroutine(startGame());
         }
     }
 
     IEnumerator startGame()
     {
+        // Wait for 2 second
         yield return new WaitForSeconds(2f);
         GameInfoFrame.SetActive(false);
         TimerFrame.SetActive(true);
 
+        // if the time-left is positive
+        // update UI and return
         if (timeLeft > 0)
         {
             //Debug.Log(timeLeft);
@@ -96,9 +128,21 @@ public class WaitingLobby : MonoBehaviour
         }
         else
         {
+            // Time zero -> proceed to next frame
             Debug.Log("Starting Game!");
             timeLeft = 0;
-            SceneManager.LoadScene("RoundScreen");
+
+            // But if the packet haven't arrive -> return and
+            // let the next routine check if the packet arrived?
+            if (firstServerPacket is null)
+            {
+                Debug.Log("Packet haven't arrive");
+            }
+            else
+            {
+                Debug.Log("Packet arrive");
+                SceneManager.LoadScene("RoundScreen");
+            }
         }
         
     }
