@@ -26,13 +26,13 @@ public class MainMenu : MonoBehaviour
     bool lengthError = false;
     bool uniqueError = false;
     bool connectionError = false;
-    bool isRoomFull = false;
+    bool roomFullError = false;
 
-    TMP_Text patternErrorText;
-    TMP_Text lengthErrorText;
-    TMP_Text uniqueErrorText;
-    TMP_Text connectionErrorText;
-    TMP_Text roomFullText;
+    public TMP_Text patternErrorText;
+    public TMP_Text lengthErrorText;
+    public TMP_Text uniqueErrorText;
+    public TMP_Text connectionErrorText;
+    public TMP_Text roomFullErrorText;
 
     const string LOCAL_HOST = "192.168.1.89";
     const int LOCAL_PORT = 5555;
@@ -48,11 +48,11 @@ public class MainMenu : MonoBehaviour
         startBtn.interactable = false;
         user_input.Select();
 
-        patternErrorText = GameObject.Find("PatternError").GetComponent<TMP_Text>();
-        lengthErrorText = GameObject.Find("LengthError").GetComponent<TMP_Text>();
-        uniqueErrorText = GameObject.Find("UniqueError").GetComponent<TMP_Text>();
-        connectionErrorText = GameObject.Find("ConnectionError").GetComponent<TMP_Text>();
-        roomFullText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
+        //patternErrorText = GameObject.Find("PatternError").GetComponent<TMP_Text>();
+        //lengthErrorText = GameObject.Find("LengthError").GetComponent<TMP_Text>();
+        //uniqueErrorText = GameObject.Find("UniqueError").GetComponent<TMP_Text>();
+        //connectionErrorText = GameObject.Find("ConnectionError").GetComponent<TMP_Text>();
+        //roomFullErrorText = GameObject.Find("RoomFullError").GetComponent<TMP_Text>();
     }
 
     public void UpdateInputField()
@@ -74,14 +74,15 @@ public class MainMenu : MonoBehaviour
 
     bool sendUsername()
     {
+        Debug.Log(user_input.text);
         patternError = false;
         lengthError = false;
         uniqueError = false;
         connectionError = false;
-        isRoomFull = false;
+        roomFullError = false;
 
         // TODO: Cannot connected case
-        if(API.Instance.ClientID is null)
+        if (API.Instance.ClientID is null)
         {
             Debug.Log("~sendUsername->Null ClientId");
             connectionError = true;
@@ -150,39 +151,15 @@ public class MainMenu : MonoBehaviour
         {
             //display error
             if (connectionError == true)
-            {
-                connectionErrorText.enabled = true;
-                patternErrorText.enabled = false;
-                lengthErrorText.enabled = false;
-                uniqueErrorText.enabled = false;
-                roomFullText.enabled = false;
-            }
+                connectionErrorText.color = new Color32(255, 0, 9, 255);
             else
-            {
-                connectionErrorText.enabled = false;
-                patternErrorText.enabled = true;
-                lengthErrorText.enabled = true;
-                uniqueErrorText.enabled = true;
-                roomFullText.enabled = true;
-            }
+                connectionErrorText.color = new Color32(255, 255, 255, 0);
 
-            if (isRoomFull == true)
-            {
-                roomFullText.enabled = true;
-                patternErrorText.enabled = false;
-                lengthErrorText.enabled = false;
-                uniqueErrorText.enabled = false;
-                connectionErrorText.enabled = false;
-            }
+            if (roomFullError == true)
+                roomFullErrorText.color = new Color32(255, 0, 9, 255);
             else
-            {
-                roomFullText.enabled = false;
-                patternErrorText.enabled = true;
-                lengthErrorText.enabled = true;
-                uniqueErrorText.enabled = true;
-                connectionErrorText.enabled = true;
-            }
-                
+                roomFullErrorText.color = new Color32(255, 255, 255, 0);
+
             if (patternError == true)
                 patternErrorText.color = new Color32(255, 0, 9, 255);
             else
