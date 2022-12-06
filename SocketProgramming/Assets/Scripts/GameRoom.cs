@@ -151,10 +151,18 @@ public class GameRoom : MonoBehaviour
 
     IEnumerator startGame()
     {
-        for (int i = 1; i <= numOfRounds; ++i)
+        for (int i = 1; i <= numOfRounds + 1; ++i)
         {
             // Start-round -> true
-            bEndRound = false;
+            if(i <= numOfRounds)
+            {
+                bEndRound = false;
+            }
+            else
+            {
+                // Extra round -> end round immediately
+                bEndRound = true;
+            }
             // Update UI for new round
             timeLeft = TIME_PER_ROUND;
             // Reset answer
@@ -193,10 +201,12 @@ public class GameRoom : MonoBehaviour
 
             // Update data
             updateData();
-
+            Debug.Log("[ROUND - " + i + "] - UPDATED DATA");
             // Update UI -> Answer
             updateAnswer(questionList[i - 1]);
             resultImg.enabled = true;
+            Debug.Log("[ROUND - " + i + "] - UPDATED DATA");
+
 
             if (questionList[i - 1].answer.Equals(curPlayerAnswer))
             {
@@ -217,6 +227,8 @@ public class GameRoom : MonoBehaviour
             WaitingLobby.curUserList.Sort(SortUserByScore);
 
             updatePlayerUI(WaitingLobby.curUserList);
+            if (i > numOfRounds)
+                break;
 
             yield return new WaitForSeconds(0.5f);
             

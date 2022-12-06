@@ -38,8 +38,8 @@ public class MainMenu : MonoBehaviour
 
     bool isLoading = false;
 
-    // const string LOCAL_HOST = "192.168.1.89";
-    // const int LOCAL_PORT = 5555;
+     const string LOCAL_HOST = "192.168.1.89";
+     const int LOCAL_PORT = 5555;
 
     // tcp://8.tcp.ngro k.io:12162
     const string LOCAL_HOST = "8.tcp.ngrok.io";
